@@ -7,6 +7,7 @@ library rather than a script.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import sys
@@ -14,8 +15,14 @@ from copy import copy
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from cookiecutter.config import get_user_config
-from cookiecutter.exceptions import InvalidModeException
+from cookiecutter.exceptions import (
+    InvalidConfiguration,
+    InvalidModeException,
+    UnknownExtension,
+)
 from cookiecutter.generate import generate_context, generate_files
 from cookiecutter.hooks import run_pre_prompt_hook
 from cookiecutter.prompt import choose_nested_template, prompt_for_config
@@ -34,7 +41,8 @@ def cookiecutter(
     replay: bool | str | None = None,
     overwrite_if_exists: bool = False,
     output_dir: str = '.',
-    config_file: str | None = None,
+    user_config: str | None = None,
+    context_file: str | None = None,
     default_config: bool = False,
     password: str | None = None,
     directory: str | None = None,
@@ -59,7 +67,8 @@ def cookiecutter(
     :param overwrite_if_exists: Overwrite the contents of the output directory
         if it exists.
     :param output_dir: Where to output the generated project dir into.
-    :param config_file: User configuration file path.
+    :param user_config: User configuration file path.
+    :param context_file: JSON or YAML file with default context values.
     :param default_config: Use default values rather than a config file.
     :param password: The password to use when extracting the repository.
     :param directory: Relative path to a cookiecutter template in a repository.
@@ -77,9 +86,25 @@ def cookiecutter(
         raise InvalidModeException(err_msg)
 
     config_dict = get_user_config(
-        config_file=config_file,
+        config_file=user_config,
         default_config=default_config,
     )
+
+    file_context: dict[str, Any] = {}
+    if context_file:
+        ext = Path(context_file).suffix.lower()
+        with open(context_file, encoding="utf-8") as f:
+            if ext == ".json":
+                file_context = json.load(f)
+            elif ext in {".yml", ".yaml"}:
+                file_context = yaml.safe_load(f) or {}
+            else:
+                msg = f"Unable to parse context defaults from {context_file}"
+                raise UnknownExtension(msg)
+
+        if extra_context:
+            file_context.update(extra_context)
+        extra_context = file_context
     base_repo_dir, cleanup_base_repo_dir = determine_repo_dir(
         template=template,
         abbreviations=config_dict['abbreviations'],
@@ -105,12 +130,12 @@ def cookiecutter(
                 path, template_name = os.path.split(os.path.splitext(replay)[0])
                 context_from_replayfile = load(path, template_name)
 
-    context_file = os.path.join(repo_dir, 'cookiecutter.json')
-    logger.debug('context_file is %s', context_file)
+    cookiecutter_file = os.path.join(repo_dir, 'cookiecutter.json')
+    logger.debug('context_file is %s', cookiecutter_file)
 
     if replay:
         context = generate_context(
-            context_file=context_file,
+            context_file=cookiecutter_file,
             default_context=config_dict['default_context'],
             extra_context=None,
         )
@@ -126,11 +151,24 @@ def cookiecutter(
         logger.debug('prompting context: %s', context_for_prompting)
     else:
         context = generate_context(
-            context_file=context_file,
+            context_file=cookiecutter_file,
             default_context=config_dict['default_context'],
             extra_context=extra_context,
         )
         context_for_prompting = context
+        if no_input and context_file:
+            required_keys = [
+                k
+                for k in context_for_prompting['cookiecutter']
+                if not k.startswith('_')
+            ]
+            context_source = extra_context or {}
+            missing = [k for k in required_keys if k not in context_source]
+            if missing:
+                msg = (
+                    f"Missing context variables in {context_file}: {', '.join(missing)}"
+                )
+                raise InvalidConfiguration(msg)
     # preserve the original cookiecutter options
     # print(context['cookiecutter'])
     context['_cookiecutter'] = {
@@ -151,7 +189,8 @@ def cookiecutter(
                 replay=replay,
                 overwrite_if_exists=overwrite_if_exists,
                 output_dir=output_dir,
-                config_file=config_file,
+                user_config=user_config,
+                context_file=context_file,
                 default_config=default_config,
                 password=password,
                 directory=directory,

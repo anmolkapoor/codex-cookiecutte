@@ -19,7 +19,7 @@ def test_original_cookiecutter_options_preserved_in__cookiecutter(
         '.',
         no_input=True,
         replay=False,
-        config_file=user_config_file,
+        user_config=user_config_file,
     )
     assert mock_generate_files.call_args[1]['context']['_cookiecutter'][
         'test_list'
@@ -52,7 +52,7 @@ def test_replay_dump_template_name(
         '.',
         no_input=True,
         replay=False,
-        config_file=user_config_file,
+        user_config=user_config_file,
     )
 
     mock_replay_dump.assert_called_once_with(
@@ -84,7 +84,7 @@ def test_replay_load_template_name(
     cookiecutter(
         '.',
         replay=True,
-        config_file=user_config_file,
+        user_config=user_config_file,
     )
 
     mock_replay_load.assert_called_once_with(
@@ -107,7 +107,7 @@ def test_custom_replay_file(monkeypatch, mocker, user_config_file) -> None:
     cookiecutter(
         '.',
         replay='./custom-replay-file',
-        config_file=user_config_file,
+        user_config=user_config_file,
     )
 
     mock_replay_load.assert_called_once_with(

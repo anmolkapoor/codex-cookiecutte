@@ -10,11 +10,11 @@ By default Cookiecutter tries to retrieve settings from a `.cookiecutterrc` file
 
 *New in Cookiecutter 1.3*
 
-You can also specify a config file on the command line via ``--config-file``.
+You can also specify a config file on the command line via ``--user-config``.
 
 .. code-block:: bash
 
-    cookiecutter --config-file /home/audreyr/my-custom-config.yaml cookiecutter-pypackage
+    cookiecutter --user-config /home/audreyr/my-custom-config.yaml cookiecutter-pypackage
 
 Or you can set the ``COOKIECUTTER_CONFIG`` environment variable:
 

@@ -23,6 +23,7 @@ from cookiecutter.exceptions import (
     ContextDecodingException,
     EmptyDirNameException,
     FailedHookException,
+    InvalidConfiguration,
     InvalidModeException,
     InvalidZipRepository,
     OutputDirExistsException,
@@ -141,7 +142,14 @@ def list_installed_templates(
     help='Where to output the generated project dir into',
 )
 @click.option(
-    '--config-file', type=click.Path(), default=None, help='User configuration file'
+    '--user-config', type=click.Path(), default=None, help='User configuration file'
+)
+@click.option(
+    '-F',
+    '--config-file',
+    type=click.Path(),
+    default=None,
+    help='Path to JSON or YAML file with default context values',
 )
 @click.option(
     '--default-config',
@@ -177,6 +185,7 @@ def main(
     replay: bool | str,
     overwrite_if_exists: bool,
     output_dir: str,
+    user_config: str | None,
     config_file: str | None,
     default_config: bool,
     debug_file: str | None,
@@ -195,7 +204,7 @@ def main(
     """
     # Commands that should work without arguments
     if list_installed:
-        list_installed_templates(default_config, config_file)
+        list_installed_templates(default_config, user_config)
         sys.exit(0)
 
     # Raising usage, after all commands that should work without args.
@@ -224,8 +233,9 @@ def main(
             replay=replay,
             overwrite_if_exists=overwrite_if_exists,
             output_dir=output_dir,
-            config_file=config_file,
+            user_config=user_config,
             default_config=default_config,
+            context_file=config_file,
             password=os.environ.get('COOKIECUTTER_REPO_PASSWORD'),
             directory=directory,
             skip_if_file_exists=skip_if_file_exists,
@@ -238,6 +248,7 @@ def main(
         EmptyDirNameException,
         InvalidModeException,
         FailedHookException,
+        InvalidConfiguration,
         UnknownExtension,
         InvalidZipRepository,
         RepositoryNotFound,
