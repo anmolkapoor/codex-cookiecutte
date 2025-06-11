@@ -21,14 +21,19 @@ clean-tox: ## Remove tox testing artifacts
 	@rm -rf .tox/
 
 .PHONY: clean-coverage
-clean-coverage: ## Remove coverage reports
+clean-coverage: ## Check code coverage quickly with the default Python
+	 "+ "
+	 -e py312
+	@$(BROWSER) htmlcov/index.html
 	@echo "+ $@"
 	@rm -rf htmlcov/
 	@rm -rf .coverage
 	@rm -rf coverage.xml
 
 .PHONY: clean-pytest
-clean-pytest: ## Remove pytest cache
+clean-pytest:	## Run tests quickly with the default Python
+	 "+ "
+	 -e py312
 	@echo "+ $@"
 	@rm -rf .pytest_cache/
 
@@ -62,7 +67,7 @@ lint: ## Check code style
 .PHONY: test
 test: ## Run tests quickly with the default Python
 	@echo "+ $@"
-	@tox -e py310
+	@tox -e py312
 
 .PHONY: test-all
 test-all: ## Run tests on every Python version
@@ -72,7 +77,7 @@ test-all: ## Run tests on every Python version
 .PHONY: coverage
 coverage: ## Check code coverage quickly with the default Python
 	@echo "+ $@"
-	@tox -e py310
+	@tox -e py312
 	@$(BROWSER) htmlcov/index.html
 
 .PHONY: docs

@@ -41,6 +41,20 @@ def remove_fake_project_dir(request) -> None:
 
 
 @pytest.fixture
+def remove_awesomez_dir(request) -> None:
+    """Remove the awesomez project directory created during tests."""
+
+    if os.path.isdir('awesomez'):
+        utils.rmtree('awesomez')
+
+    def fin() -> None:
+        if os.path.isdir('awesomez'):
+            utils.rmtree('awesomez')
+
+    request.addfinalizer(fin)
+
+
+@pytest.fixture
 def remove_tmp_dir(request) -> None:
     """Remove the fake project directory created during the tests."""
     if os.path.isdir('tests/tmp'):
@@ -118,8 +132,9 @@ def test_cli_replay(mocker, cli_runner) -> None:
         overwrite_if_exists=False,
         skip_if_file_exists=False,
         output_dir='.',
-        config_file=None,
+        user_config=None,
         default_config=False,
+        context_file=None,
         extra_context=None,
         password=None,
         directory=None,
@@ -145,8 +160,9 @@ def test_cli_replay_file(mocker, cli_runner) -> None:
         overwrite_if_exists=False,
         skip_if_file_exists=False,
         output_dir='.',
-        config_file=None,
+        user_config=None,
         default_config=False,
+        context_file=None,
         extra_context=None,
         password=None,
         directory=None,
@@ -197,8 +213,9 @@ def test_cli_exit_on_noinput_and_replay(mocker, cli_runner) -> None:
         overwrite_if_exists=False,
         skip_if_file_exists=False,
         output_dir='.',
-        config_file=None,
+        user_config=None,
         default_config=False,
+        context_file=None,
         extra_context=None,
         password=None,
         directory=None,
@@ -233,8 +250,9 @@ def test_run_cookiecutter_on_overwrite_if_exists_and_replay(
         overwrite_if_exists=True,
         skip_if_file_exists=False,
         output_dir='.',
-        config_file=None,
+        user_config=None,
         default_config=False,
+        context_file=None,
         extra_context=None,
         password=None,
         directory=None,
@@ -292,8 +310,9 @@ def test_cli_output_dir(mocker, cli_runner, output_dir_flag, output_dir) -> None
         overwrite_if_exists=False,
         skip_if_file_exists=False,
         output_dir=output_dir,
-        config_file=None,
+        user_config=None,
         default_config=False,
+        context_file=None,
         extra_context=None,
         password=None,
         directory=None,
@@ -326,7 +345,7 @@ def test_user_config(mocker, cli_runner, user_config_path) -> None:
     mock_cookiecutter = mocker.patch('cookiecutter.cli.cookiecutter')
 
     template_path = 'tests/fake-repo-pre/'
-    result = cli_runner(template_path, '--config-file', user_config_path)
+    result = cli_runner(template_path, '--user-config', user_config_path)
 
     assert result.exit_code == 0
     mock_cookiecutter.assert_called_once_with(
@@ -337,8 +356,9 @@ def test_user_config(mocker, cli_runner, user_config_path) -> None:
         overwrite_if_exists=False,
         skip_if_file_exists=False,
         output_dir='.',
-        config_file=user_config_path,
+        user_config=user_config_path,
         default_config=False,
+        context_file=None,
         extra_context=None,
         password=None,
         directory=None,
@@ -354,7 +374,7 @@ def test_default_user_config_overwrite(mocker, cli_runner, user_config_path) -> 
     template_path = 'tests/fake-repo-pre/'
     result = cli_runner(
         template_path,
-        '--config-file',
+        '--user-config',
         user_config_path,
         '--default-config',
     )
@@ -368,8 +388,9 @@ def test_default_user_config_overwrite(mocker, cli_runner, user_config_path) -> 
         overwrite_if_exists=False,
         skip_if_file_exists=False,
         output_dir='.',
-        config_file=user_config_path,
+        user_config=user_config_path,
         default_config=True,
+        context_file=None,
         extra_context=None,
         password=None,
         directory=None,
@@ -394,8 +415,9 @@ def test_default_user_config(mocker, cli_runner) -> None:
         overwrite_if_exists=False,
         skip_if_file_exists=False,
         output_dir='.',
-        config_file=None,
+        user_config=None,
         default_config=True,
+        context_file=None,
         extra_context=None,
         password=None,
         directory=None,
@@ -590,7 +612,7 @@ def test_debug_list_installed_templates(
 
     result = cli_runner(
         '--list-installed',
-        '--config-file',
+        '--user-config',
         user_config_path,
         str(debug_file),
     )
@@ -607,7 +629,7 @@ def test_debug_list_installed_templates_failure(
     Path(user_config_path).write_text('cookiecutters_dir: "/notarealplace/"')
 
     result = cli_runner(
-        '--list-installed', '--config-file', user_config_path, str(debug_file)
+        '--list-installed', '--user-config', user_config_path, str(debug_file)
     )
 
     assert "Error: Cannot list installed templates." in result.output
@@ -665,8 +687,9 @@ def test_cli_accept_hooks(
         replay=False,
         overwrite_if_exists=False,
         output_dir=output_dir,
-        config_file=None,
+        user_config=None,
         default_config=False,
+        context_file=None,
         extra_context=None,
         password=None,
         directory=None,
@@ -716,3 +739,38 @@ def test_cli_with_pre_prompt_hook_fail(cli_runner, monkeypatch) -> None:
     assert result.exit_code == 1
     dir_name = 'inputfake-project'
     assert not Path(dir_name).exists()
+
+
+@pytest.mark.usefixtures('remove_fake_project_dir', 'remove_awesomez_dir')
+def test_cli_config_file_defaults(cli_runner, tmp_path) -> None:
+    """Project generation uses values from a config file."""
+    defaults = {
+        "full_name": "User",
+        "email": "user@example.com",
+        "github_username": "user",
+        "project_name": "Awesomez",
+        "repo_name": "awesomez",
+        "project_short_description": "Best project",
+        "release_date": "2024-01-01",
+        "year": "2024",
+        "version": "1.0",
+    }
+    cfg = tmp_path / "defaults.json"
+    cfg.write_text(json.dumps(defaults))
+
+    result = cli_runner('tests/fake-repo-pre/', '--config-file', str(cfg), '--no-input')
+
+    assert result.exit_code == 0
+    assert os.path.isdir('awesomez')
+
+
+@pytest.mark.usefixtures('remove_fake_project_dir', 'remove_awesomez_dir')
+def test_cli_config_file_missing_keys(cli_runner, tmp_path) -> None:
+    """Using --no-input with incomplete config file fails."""
+    cfg = tmp_path / "defaults.json"
+    cfg.write_text(json.dumps({"project_name": "Foo"}))
+
+    result = cli_runner('tests/fake-repo-pre/', '--config-file', str(cfg), '--no-input')
+
+    assert result.exit_code == 1
+    assert 'Missing context variables' in result.output
