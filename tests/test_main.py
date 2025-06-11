@@ -1,5 +1,11 @@
 """Collection of tests around cookiecutter's replay feature."""
 
+import json
+
+import pytest
+import yaml
+
+from cookiecutter.exceptions import UnknownExtension
 from cookiecutter.main import cookiecutter
 
 
@@ -114,3 +120,81 @@ def test_custom_replay_file(monkeypatch, mocker, user_config_file) -> None:
         '.',
         'custom-replay-file',
     )
+
+
+def test_context_file_yaml(monkeypatch, mocker, user_config_file, tmp_path) -> None:
+    """Ensure defaults can be loaded from a YAML file."""
+    monkeypatch.chdir("tests/fake-repo-pre")
+    cfg = tmp_path / "defaults.yml"
+    defaults = {
+        "full_name": "User",
+        "email": "user@example.com",
+        "github_username": "user",
+        "project_name": "YmlProj",
+        "repo_name": "ymlproj",
+        "project_short_description": "Desc",
+        "release_date": "2024-01-01",
+        "year": "2024",
+        "version": "1.0",
+    }
+    cfg.write_text(yaml.dump(defaults))
+    mock_generate_files = mocker.patch("cookiecutter.main.generate_files")
+
+    cookiecutter(
+        ".",
+        no_input=True,
+        user_config=user_config_file,
+        context_file=str(cfg),
+    )
+
+    context = mock_generate_files.call_args[1]["context"]["cookiecutter"]
+    assert context["project_name"] == "YmlProj"
+    assert context["repo_name"] == "ymlproj"
+
+
+def test_context_file_unknown_extension(
+    monkeypatch, tmp_path, user_config_file
+) -> None:
+    """Invalid context file extension raises an error."""
+    monkeypatch.chdir("tests/fake-repo-pre")
+    cfg = tmp_path / "defaults.txt"
+    cfg.write_text("foo")
+    with pytest.raises(UnknownExtension):
+        cookiecutter(
+            ".",
+            no_input=True,
+            user_config=user_config_file,
+            context_file=str(cfg),
+        )
+
+
+def test_context_file_extra_context_overrides(
+    monkeypatch, mocker, tmp_path, user_config_file
+) -> None:
+    """CLI extra context overrides values from config file."""
+    monkeypatch.chdir("tests/fake-repo-pre")
+    cfg = tmp_path / "defaults.json"
+    defaults = {
+        "full_name": "User",
+        "email": "user@example.com",
+        "github_username": "user",
+        "project_name": "Wrong",
+        "repo_name": "wrong",
+        "project_short_description": "Desc",
+        "release_date": "2024-01-01",
+        "year": "2024",
+        "version": "1.0",
+    }
+    cfg.write_text(json.dumps(defaults))
+    mock_generate_files = mocker.patch("cookiecutter.main.generate_files")
+
+    cookiecutter(
+        ".",
+        no_input=True,
+        user_config=user_config_file,
+        context_file=str(cfg),
+        extra_context={"project_name": "Right"},
+    )
+
+    context = mock_generate_files.call_args[1]["context"]["cookiecutter"]
+    assert context["project_name"] == "Right"
